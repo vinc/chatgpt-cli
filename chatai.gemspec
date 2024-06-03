@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = "chatai"
-  s.version     = "0.1.1"
+  s.version     = "0.2.0"
   s.license     = "MIT"
   s.summary     = "ChatGPT CLI"
   s.description = "A simple CLI for ChatGPT"
@@ -13,6 +13,6 @@ Gem::Specification.new do |s|
   s.executables << "chatai"
   s.add_runtime_dependency("dotenv",      "~> 2.8", ">= 2.8.0")
   s.add_runtime_dependency("reline",      "~> 0.3", ">= 0.3.3")
-  s.add_runtime_dependency("ruby-openai", "~> 3.5", ">= 3.5.0")
+  s.add_runtime_dependency("ruby-openai", "~> 7.0", ">= 7.0.1")
   s.add_runtime_dependency("word_wrap",   "~> 1.0", ">= 1.0.0")
 end

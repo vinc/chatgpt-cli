@@ -14,14 +14,14 @@ OpenAI.configure do |config|
   end
 end
 
-def chat(client, input)
+def chat(openai, input)
   parameters = {
     model: ENV.fetch("OPENAI_MODEL", "gpt-3.5-turbo"),
     messages: [{ role: "user", content: input }],
     temperature: 0.7,
   }
   begin
-    res = client.chat(parameters: parameters)
+    res = openai.chat(parameters: parameters)
   rescue Net::ReadTimeout
     retry
   rescue Errno::ECONNRESET
@@ -38,26 +38,63 @@ def fmt(text)
   WordWrap.ww(text, 72)
 end
 
-client = OpenAI::Client.new
-if $stdin.tty?
-  begin
-    context = []
-    loop do
-      line = Reline.readline("\x1b[36m>\x1b[0m ")
-      break if line.nil? || line == "quit"
+openai = OpenAI::Client.new
+options = {}
+ARGV.each do |arg|
+  case arg
+  when "--server", "-s"
+    options[:server] = true
+  end
+end
 
-      Reline::HISTORY << line
-      context << line
-      text = chat(client, context.join("\n\n"))
-      puts fmt(text)
-      puts
-      context << text
+if options[:server]
+  port = ENV.fetch("CHATAI_PORT", "4242").to_i
+  server = TCPServer.new(port)
+  loop do
+    Thread.start(server.accept) do |client|
+      begin
+        context = []
+        loop do
+          line = client.gets&.chomp
+          break if line.nil?
+          context << line
+          content = context.join("\n\n")
+          tokens = OpenAI.rough_token_count(content)
+          text = chat(openai, content)
+          puts "#{client.peeraddr[3]} - - [#{Time.new}] #{tokens}"
+          client.puts
+          client.puts fmt(text)
+          client.puts
+          context << text
+        end
+      rescue => e
+        puts "Error: #{e.message}"
+      ensure
+        client.close
+      end
     end
-  rescue SignalException
-    puts
   end
 else
-  context = ARGF.read
-  text = chat(client, context)
-  puts fmt(text)
+  if $stdin.tty?
+    context = []
+    begin
+      loop do
+        line = Reline.readline("\x1b[36m>\x1b[0m ")
+        break if line.nil? || line == "quit"
+
+        Reline::HISTORY << line
+        context << line
+        text = chat(openai, context.join("\n\n"))
+        puts fmt(text)
+        puts
+        context << text
+      end
+    rescue SignalException
+      puts
+    end
+  else
+    context = ARGF.read
+    text = chat(openai, context)
+    puts fmt(text)
+  end
 end
